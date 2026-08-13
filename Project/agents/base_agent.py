@@ -14,4 +14,21 @@ from crewai import Agent
 from core.config import config
 
 class BaseThreatAgent(ABC):
-    
+    """
+    Abstract base class for all cybersecurity threat-intelligence specialists.
+
+    Each spealist:
+    - provides its own agent_name
+    - implements analyze_async()
+    - uses the CrewAI Agent created by this base class
+    - inherits retry and error-handling behavior from execute_sync()
+    """
+
+    def __init__(
+        self, 
+        role: str,
+        goal: str,
+        backstory: str,
+        llm: Any,
+        tools: Optional[List[]]
+    )
