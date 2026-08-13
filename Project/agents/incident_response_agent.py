@@ -75,5 +75,12 @@ class IncidentResponseAgent(BaseThreatAgent):
 
         else:
             raise TypeError(
-                "Incident response task returned an unexpected str"
+                "Incident response task returned an unexpected structured-output type."
             )
+        
+        return {
+            "response_actions": data.get("response_actions", []),
+            "forensic_findings": data.get("forensic_findings", []),
+            "containment_summary": data.get("containment_summary", ""),
+            "responded": data.get("responded", True),
+        }
