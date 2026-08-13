@@ -30,5 +30,55 @@ class BaseThreatAgent(ABC):
         goal: str,
         backstory: str,
         llm: Any,
-        tools: Optional[List[]]
-    )
+        tools: Optional[List[Any]] = None,
+    ) -> None:
+        
+        self.crewai_agent = Agent(
+            role=role,
+            goal=goal,
+            backstory=backstory,
+            llm=llm,
+            tools=tools or [],
+        )
+
+        self.agent_name: str = self.__class__.__name__
+
+    @abstractmethod
+    async def analyze_async(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    async def execute_async(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        last_error: Optional[Exception] = None
+
+        for attempt in range(config.max_retries):
+            try:
+                result = await self.analyze_async(state)
+
+                if not isinstance(result, dict):
+                    raise TypeError(
+                        f"{self.agent_name}.analyze_async() must return a dict, "
+                        f"got {type(result).__name__}"
+                    )
+
+                result["agent"] = self.agent_name
+                result["status"] = "success"
+                result["timestamp"] = self._timestamp()
+
+                return result
+
+            except Exception as exc:
+                last_error = exc
+
+                if attempt < config.max_retries - 1:
+                    await asyncio.sleep(config.retry_delay_seconds)
+            
+        return {
+            "agent": self.agent_name,
+            "status": "error",
+            "error": str(last_error) if last_error else "Unknown error",
+            "timestamp": self._timestamp(),
+        }
+
+    @staticmethod
+    def _timestamp() -> str:
+        return datetime.now(timezone.utc).isoformat()
