@@ -37,7 +37,7 @@ class ThreatAnalysisAgent(BaseThreatAgent):
         )
     
     async def analyze_async(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        task = build_security_recommendation_task(
+        task = build_threat_analysis_task(
             agent=self.crewai_agent,
             state=state,
         )
