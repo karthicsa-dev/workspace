@@ -21,9 +21,9 @@ class SecurityRecommendationAgent(BaseThreatAgent):
 
     def __init__(self) -> None:
         super().__init__(
-            role="Cybersecurity Security Recommendation specialist",
-            goal="Synthesize the threat intelligence, threat analysis, incident-response findings, compliance posture, and security posture into prioritized security recommendations. Produce a practical remidiation roadmap and a clear security intelligence report.",
-            backstory="You are an experienced cybersecurity security architect and risk advisor. Ypu assess an organization's security posture against relevant compliance frameworks and security controls, correlate these findings with active threats and incident-response results, and prioritize security improvements according to risk, urgency, business impact and feasibility. Your recommendations must be grounded in the information available through the provided tools and the intelligence record.",
+            role=("Cybersecurity Security Recommendation specialist"),
+            goal=("Synthesize the threat intelligence, threat analysis, incident-response findings, compliance posture, and security posture into prioritized security recommendations. Produce a practical remidiation roadmap and a clear security intelligence report."),
+            backstory=("You are an experienced cybersecurity security architect and risk advisor. Ypu assess an organization's security posture against relevant compliance frameworks and security controls, correlate these findings with active threats and incident-response results, and prioritize security improvements according to risk, urgency, business impact and feasibility. Your recommendations must be grounded in the information available through the provided tools and the intelligence record."),
             llm=get_llm(
                 temperature=0.4,
                 max_tokens=2000,
