@@ -118,6 +118,13 @@ class RecommendationAssessment(BaseModel):
     report: int = Field(
         ...,
         description = (
-            "Complete markdown security intelligence report containing executive summary, key findings, incident response, prioritized recommendations, next steps, and human-review "
+            "Complete markdown security intelligence report containing executive summary, key findings, incident response, prioritized recommendations, next steps, and human-review context where applicable."
         ),
     )
+
+def build_security_recommendation_task(agent: Agent, state: Dict[str, Any]) -> Task:
+    organization = state.get("organization", "UNKNOWN")
+
+    description = f""" 
+    
+    """
