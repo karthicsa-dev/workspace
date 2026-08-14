@@ -62,4 +62,101 @@ class ThreatIntelligenceFlow(Flow):
                 result,
             )
 
-            self.state["intel"]["threat_"]
+            self.state["intel"]["threat_data"] = result.get(
+                "threat_data",
+                {},
+            )
+            self.state["intel"]["threat_severity_score"] = result.get(
+                "threat_severity_score",
+                0.0,
+            )
+            self.state["intel"]["compromised_systems"] = result.get(
+                "compromised_systems",
+                0,
+            )
+            self.state["intel"]["detected"] = result.get(
+                "detected",
+                False,
+            )
+
+            if result.get("status") == "error":
+                add_error(
+                    self.state["intel"],
+                    result.get("error", "Threat detection failed."),
+                    self.detector.agent_name,
+                )
+
+        except Exception as exc:
+            add_error(
+                self.state["intel"],
+                str(exc),
+                self.detector.agent_name,
+            )
+        
+        self.state["intel"]["metrics"]["detection_seconds"] = round(
+            time.perf_counter() - step_started,
+            3,
+        )
+
+        return self.state["intel"]
+
+    @listen(detect_threats)
+    async def analyze_threats(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        step_started = time.perf_counter()
+
+        try:
+            result = await self.analyst.execute_async(
+                self.state["intel"]
+            )
+
+            add_agent_result(
+                self.state["intel"],
+                self.analyst.agent_name,
+                result,
+            )
+
+            self.state["intel"]["threat_analysis"] = result.get(
+                "threat_analysis",
+                {},
+            )
+            self.state["intel"]["critical_threats"] = result.get(
+                "critical_threats",
+                0,
+            )
+            self.state["intel"]["analyzed"] = result.get(
+                "analyzed",
+                False,
+            )
+
+            if result.get("status") == "error":
+                add_error(
+                    self.state["intel"],
+                    result.get("error", "Threat analysis failed."),
+                    self.analyst.agent_name,
+                )
+
+        except Exception as exc:
+            add_error(
+                self.state["intel"],
+                str(exc),
+                self.analyst.agent_name,
+            )
+        
+        self.state["intel"]["metrics"]["analysis_seconds"] = round(
+            time.perf_counter() - step_started,
+            3,
+        )
+
+        return self.state["intel"]
+
+    @router(analyze_threats)
+    def route_by_criticality(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        critical_threats = intel.get("critical_threats", 0)
+
+        if critical_threats >= config.critical_threat_floor:
+            return ROUTE_PRIORITY
+        
+        return ROUTE_STANDARD
+
+    @listen
+    
