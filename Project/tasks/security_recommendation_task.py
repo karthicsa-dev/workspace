@@ -36,6 +36,35 @@ class SecurityRecommendation(BaseModel):
     framework: str = Field(
         ...,
         description = (
-            "Relevant security "
+            "Relevant security or compliance framework/control mapping, such as NIST CSF, CIS controls, MITRE ATT&CK, ISO 27001, or SANS Top 20."
+        ),
+    )
+
+    description: str = Field(
+        ...,
+        description = (
+            "Detailed explanation of the recommended security improvement and why it should be implemented."
+        ),
+    )
+
+class RoadmapItem(BaseModel):
+    initiative: str = Field(
+        ...,
+        description = (
+            "Name of the security improvement initiative."
+        ),
+    )
+
+    timeframe: str = Field(
+        ...,
+        description = (
+            "Recommended implementation timeframe, such as 0-72 Hours, 1-4 Weeks, 1-6 Months, or Ongoing."
+        ),
+    )
+
+    title: str = Field(
+        ...,
+        description = (
+            "Short descriptive title for the recommendation."
         ),
     )
