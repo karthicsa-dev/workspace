@@ -126,5 +126,9 @@ def build_security_recommendation_task(agent: Agent, state: Dict[str, Any]) -> T
     organization = state.get("organization", "UNKNOWN")
 
     description = f""" 
-    
+    You are the final security recommendation specialist for:
+
+    Organization: {organization}
+
+    Your responsibility is to synthesize the complete threat-intelligence record and produce prioritized 
     """
