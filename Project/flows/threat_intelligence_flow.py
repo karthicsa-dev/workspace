@@ -158,5 +158,19 @@ class ThreatIntelligenceFlow(Flow):
         
         return ROUTE_STANDARD
 
-    @listen
-    
+    @listen(ROUTE_PRIORITY)
+    def flag_priority_response(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        self.state["intel"]["response_mode"] = "priority"
+        self.state["intel"]["hitl"]["required"] = True
+
+        return self.state["intel"]
+
+    @listen(ROUTE_STANDARD)
+    def mark_standard_response(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        self.state["intel"]["response_mode"] = "standard"
+        self.state["intel"]["hitl"]["required"] = False
+
+        return self.state["intel"]
+
+    @listen(or_(flag_priority_response, mark_standard_response))
+    async def 
