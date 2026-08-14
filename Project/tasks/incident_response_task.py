@@ -114,6 +114,51 @@ def build_incident_response_task(agent: Agent, state: Dict[str, Any]) -> Task:
         -  Use this information to identify appropriate containment targets.
 
     2. Vulnerability Scanner
-        -  Review relevant vuln
+        -  Review relevant vulnerability findings.
+        -  Identify weaknesses that may contribute to the incident.
+        -  Use the findings to support containment, eradication and remediation decisions.
 
+    Do not invent asset or vulnerability data that is not available from the tools or shared intelligence record.
+
+    Develop a practical incident-response plan covering the applicable incident-response lifecycle stages:
+    -  identificaton
+    -  containment
+    -  eradication
+    -  recovery
+    -  lessons learned
+
+    For each response action, provide:
+    -  the lifecycle stage
+    -  the action category
+    -  the specific action
+    -  the target system or asset
+
+    Also identify important forensic findings and explain the evidence and security significance of each finding.
+
+    The containment summary must clearly explain the immediate containment strategy, particularly for critical or compromised systems.
+
+    Use cybersecurity judgement to prioritize actions according to:
+    -  severity of the active threat
+    -  affected systems
+    -  criticality of assets
+    -  evidence of compromise
+    -  lateral movement
+    -  persistance
+    -  data extrafiltration
+    -  relevant vulnerabilities
+    -  potential business impact
+
+    Do not merely repeat the input data. Reason over it and produce an actionable response plan.
+
+    Return ONLY the structured assessment represented by the required ResponseAssessment schema.
     """
+
+    return Task(
+        description=description,
+        expected_output=(
+            "A structured ResponseAssessment containing response_actions, forensic_findings, containment_summary, and responded."
+        ),
+        agent=agent,
+        output_pydantic=ResponseAssessment,
+    )
+    
