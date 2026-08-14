@@ -173,4 +173,138 @@ class ThreatIntelligenceFlow(Flow):
         return self.state["intel"]
 
     @listen(or_(flag_priority_response, mark_standard_response))
-    async def 
+    async def respond_to_incidents(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        step_started = time.perf_counter()
+
+        try:
+            result = await self.responder.execute_async(
+                self.state["intel"]
+            )
+
+            add_agent_result(
+                self.state["intel"],
+                self.responder.agent_name,
+                result,
+            )
+
+            self.state["intel"]["response_actions"] = result.get(
+                "response_actions",
+                [],
+            )
+            self.state["intel"]["forensic_findings"] = result.get(
+                "forensic_findings",
+                [],
+            )
+            self.state["intel"]["containment_summary"] = result.get(
+                "containment_summary",
+                "",
+            )
+            self.state["intel"]["responded"] = result.get(
+                "responded",
+                False,
+            )
+
+            if result.get("status") == "error":
+                add_error(
+                    self.state["intel"],
+                    result.get("error", "Incident response failed."),
+                    self.responder.agent_name,
+                )
+
+        except Exception as exc:
+            add_error(
+                self.state["intel"],
+                str(exc),
+                self.responder.agent_name,
+            )
+        
+        self.state["intel"]["metrics"]["response_seconds"] = round(
+            time.perf_counter() - step_started,
+            3,
+        )
+
+        return self.state["intel"]
+
+    @listen(respond_to_incidents)
+    async def recommend_security(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        step_started = time.perf_counter()
+
+        try:
+            result = await self.advisor.execute_async(
+                self.state["intel"]
+            )
+
+            add_agent_result(
+                self.state["intel"],
+                self.advisor.agent_name,
+                result,
+            )
+
+            self.state["intel"]["security_recommendations"] = result.get(
+                "security_recommendations",
+                [],
+            )
+            self.state["intel"]["roadmap"] = result.get(
+                "roadmap",
+                [],
+            )
+            self.state["intel"]["recommendations_count"] = result.get(
+                "recommendations_count",
+                0,
+            )
+            self.state["intel"]["confidence"] = result.get(
+                "confidence",
+                0.0,
+            )
+            self.state["intel"]["rationale"] = result.get(
+                "rationale",
+                "",
+            )
+            self.state["intel"]["report"] = result.get(
+                "report",
+                "",
+            )
+
+            if result.get("status") == "error":
+                add_error(
+                    self.state["intel"],
+                    result.get("error", "Security recommendation Generation failed."),
+                    self.advisor.agent_name,
+                )
+
+        except Exception as exc:
+            add_error(
+                self.state["intel"],
+                str(exc),
+                self.advisor.agent_name,
+            )
+        
+        self.state["intel"]["metrics"]["recommendation_seconds"] = round(
+            time.perf_counter() - step_started,
+            3,
+        )
+
+        return self.state["intel"]
+
+    @listen(recommend_security)
+    def finalize_intelligence(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        workflow_started = self.state.get("workflow_started_at")
+        if workflow_started is not None:
+            total_seconds = round(
+                time.perf_counter() - workflow_started,
+                3,
+            )
+            self.state["intel"]["metrics"]["total_seconds"] = total_seconds
+
+        if self.state["intel"]["hitl"].get("required", False):
+            final_status = STATUS_REVIEW
+        else:
+            final_status = STATUS_COMPLETED
+
+        finalize_status(
+            self.state["intel"],
+            final_status,
+        )
+
+        record_intel(self.state["intel"])
+        return self.state["intel"]
