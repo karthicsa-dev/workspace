@@ -62,9 +62,62 @@ class RoadmapItem(BaseModel):
         ),
     )
 
-    title: str = Field(
+    priority: str = Field(
         ...,
         description = (
-            "Short descriptive title for the recommendation."
+            "Priority of the roadmap initiative."
+        ),
+    )
+
+    impact: str = Field(
+        ...,
+        description = (
+            "Expected security or business impact."
+        ),
+    )
+
+class RecommendationAssessment(BaseModel):
+    security_recommendations: List[SecurityRecommendation] = Field(
+        default_factory = list,
+        description = (
+            "Prioritized security recommendations derived from the threat intelligence, incident response, compliance benchmark, and security posture findings."
+        ),
+    )
+
+    roadmap: List[RoadmapItem] = Field(
+        default_factory = list,
+        description = (
+            "Prioritized implementation roadmap for the recommended security improvements."
+        ),
+    )
+
+    recommendations_count: int = Field(
+        ...,
+        ge = 0,
+        description = (
+            "Number of security recommendations produced.."
+        ),
+    )
+
+    confidence: int = Field(
+        ...,
+        ge = 0.0,
+        le = 1.0,
+        description = (
+            "LLM confidence in the overall security recommendation assessment, expressed as value from 0.0 to 1.0."
+        ),
+    )
+
+    rationale: int = Field(
+        ...,
+        description = (
+            "Reasoning explaining why the recommendations were prioritized in the selected order."
+        ),
+    )
+
+    report: int = Field(
+        ...,
+        description = (
+            "Complete markdown security intelligence report containing executive summary, key findings, incident response, prioritized recommendations, next steps, and human-review "
         ),
     )
