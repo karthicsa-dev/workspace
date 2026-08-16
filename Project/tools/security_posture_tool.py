@@ -60,7 +60,7 @@ def security_posture_tool(organization: str) -> Dict[str, Any]:
         }
 
     security_posture = organization_data.get(
-        "security_posture",
+        "posture",
         {},
     )
 
