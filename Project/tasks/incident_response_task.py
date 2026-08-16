@@ -13,57 +13,54 @@ from typing import Any, Dict, List
 from crewai import Agent, Task
 from pydantic import BaseModel, Field
 
+from core.config import RESPONSE_STAGES
+
 
 class ResponseAction(BaseModel):
-    """A single incident-response action."""
+    """A single prioritized incident-response action."""
 
-    stage: str = Field(
+    priority: str = Field(
         ...,
         description=(
-            "Incident-response lifecycle stage for this action. "
-            "Use identification, containment, eradication, recovery, "
-            "or lessons_learned."
+            "Priority of the response action. Use values such as "
+            "critical, immediate, high, urgent, medium, or low."
         ),
     )
 
-    category: str = Field(
+    phase: str = Field(
         ...,
         description=(
-            "Category of the response action, such as endpoint, "
-            "network, identity, vulnerability, or data protection."
+            "Incident-response lifecycle phase. Prefer one of: "
+            "identification, containment, eradication, recovery, "
+            "or lessons_learned."
         ),
     )
 
     action: str = Field(
         ...,
-        description="Specific actionable response or containment step.",
+        description="Specific actionable incident-response step.",
     )
 
     target: str = Field(
         ...,
         description=(
-            "System, asset, infrastructure component, identity system, "
-            "or other target to which the action applies."
+            "System, asset, identity, network segment, application, "
+            "or other target affected by the response action."
         ),
     )
 
 
 class ForensicFinding(BaseModel):
-    """A forensic finding identified during incident analysis."""
-
-    finding: str = Field(
-        ...,
-        description="Observed or inferred forensic finding.",
-    )
+    """A forensic finding identified from the available evidence."""
 
     evidence: str = Field(
         ...,
         description="Evidence supporting the forensic finding.",
     )
 
-    significance: str = Field(
+    finding: str = Field(
         ...,
-        description="Security significance of the finding.",
+        description="Forensic conclusion derived from the available evidence.",
     )
 
 
@@ -73,23 +70,23 @@ class ResponseAssessment(BaseModel):
     response_actions: List[ResponseAction] = Field(
         default_factory=list,
         description=(
-            "Prioritized incident-response actions covering appropriate "
-            "response lifecycle stages."
+            "Prioritized incident-response actions covering the "
+            "applicable response lifecycle phases."
         ),
     )
 
     forensic_findings: List[ForensicFinding] = Field(
         default_factory=list,
         description=(
-            "Forensic findings derived from the available threat, asset, "
-            "and vulnerability evidence."
+            "Important forensic findings and the evidence supporting "
+            "those findings."
         ),
     )
 
     containment_summary: str = Field(
         ...,
         description=(
-            "Concise summary of the recommended containment approach, "
+            "Concise summary of the recommended containment strategy, "
             "including the most important immediate containment measures."
         ),
     )
@@ -111,81 +108,120 @@ def build_incident_response_task(
     Build the incident-response CrewAI task.
 
     The task provides the specialist with the shared intelligence record
-    and instructs it to use its deterministic tools before producing the
-    structured ResponseAssessment.
+    and instructs it to use deterministic asset-inventory and vulnerability
+    data before producing the structured response assessment.
     """
 
     organization = state.get("organization", "UNKNOWN")
 
     description = f"""
-You are responsible for developing the incident-response plan for:
+You are the Incident Response specialist for:
 
 Organization: {organization}
 
-Review the complete shared intelligence record below before producing
-your assessment.
+Your responsibility is to develop a practical, prioritized
+incident-response plan based on the complete threat-intelligence record.
 
 SHARED INTELLIGENCE RECORD:
 {state}
 
-Your task is to determine the appropriate incident-response actions based
-on the threats already detected and analyzed.
-
-You MUST use the available deterministic tools to obtain the relevant
-asset inventory and vulnerability information before finalizing the plan:
+You MUST use both deterministic tools before finalizing your plan:
 
 1. Asset Inventory System
    - Identify affected systems and assets.
    - Identify critical assets and crown-jewel systems.
-   - Determine relevant network segments and exposed assets.
-   - Use this information to identify appropriate containment targets.
+   - Review network segments.
+   - Review internet-exposed assets.
+   - Use this information to determine appropriate containment targets.
 
 2. Vulnerability Scanner
    - Review relevant vulnerability findings.
    - Identify weaknesses that may contribute to the incident.
-   - Use the findings to support containment, eradication and remediation
-     decisions.
+   - Use the findings to support containment, eradication, recovery,
+     and remediation decisions.
 
-Do not invent asset or vulnerability data that is not available from the
-tools or shared intelligence record.
+Do not invent asset or vulnerability information that is not available
+from the tools or shared intelligence record.
 
-Develop a practical incident-response plan covering the applicable
-incident-response lifecycle stages:
+INCIDENT-RESPONSE PLAN
 
-- identification
-- containment
-- eradication
-- recovery
-- lessons_learned
+Develop actionable response steps across the applicable incident-response
+lifecycle phases:
 
-For each response action, provide:
-- the lifecycle stage
-- the action category
-- the specific action
-- the target system or asset
+{RESPONSE_STAGES}
 
-Also identify important forensic findings and explain the evidence and
-security significance of each finding.
+For every response action provide:
 
-The containment summary must clearly explain the immediate containment
-strategy, particularly for critical or compromised systems.
+- priority
+- phase
+- action
+- target
 
-Use cybersecurity judgment to prioritize actions according to:
-- severity of the active threat
-- affected systems
-- criticality of assets
+Prioritize actions based on:
+
+- active threat severity
 - evidence of compromise
+- compromised systems
+- critical assets
+- crown-jewel systems
+- internet exposure
 - lateral movement
 - persistence
 - data exfiltration
 - relevant vulnerabilities
 - potential business impact
 
-Do not merely repeat the input data. Reason over it and produce an
-actionable response plan.
+The response plan must distinguish between immediate containment
+actions and longer-term eradication, recovery, and lessons-learned
+activities.
 
-Return ONLY the structured assessment represented by the required
-ResponseAssessment schema.
+CONTAINMENT
+
+Provide a concise `containment_summary`.
+
+The containment strategy should clearly identify the most important
+immediate actions needed to limit further compromise or data loss.
+
+For critical incidents, give particular attention to:
+
+- isolating compromised endpoints
+- limiting lateral movement
+- protecting crown-jewel systems
+- blocking malicious infrastructure
+- preserving evidence
+- preventing further data exfiltration
+
+Do not claim that a containment action has actually been executed.
+This task produces a recommended response plan for the appropriate
+human/security workflow.
+
+FORENSIC FINDINGS
+
+Identify important forensic findings from the available evidence.
+
+For each finding provide:
+
+- evidence
+- finding
+
+Do not invent forensic evidence.
+
+RESPONSE QUALITY
+
+Do not merely repeat the threat-detection or threat-analysis output.
+
+Reason over the available threat intelligence, endpoint telemetry,
+asset inventory, and vulnerability findings to produce a practical
+incident-response plan.
+
+Use the available evidence to determine which systems and assets should
+receive the highest response priority.
+
+Set `responded` to true when a meaningful incident-response plan has
+been successfully developed from the available evidence.
+
+Return ONLY the structured ResponseAssessment represented by the
+required schema.
 """
 
     return Task(
