@@ -59,14 +59,14 @@ class ThreatIntelligenceFlow(Flow):
     # ------------------------------------------------------------------
 
     @start()
-    async def detect_threats(self, organization: str) -> Dict[str, Any]:
+    async def detect_threats(self) -> Dict[str, Any]:
         """
         Create the intelligence record and run threat detection.
 
         This is the only @start step. It initializes the shared record and
         stores the workflow start timestamp before invoking the detector.
         """
-
+        organization = self.state.get("organization", "UNKNOWN")
         intel = create_intel_state(
             {
                 "organization": organization,
