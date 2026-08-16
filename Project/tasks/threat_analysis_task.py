@@ -73,37 +73,47 @@ class AnalysisAssessment(BaseModel):
     analyzed: bool = Field(
         ...,
         description = (
-            "Prioritized implementation roadmap for the recommended security improvements."
+            "True when available threat intelligence and endpoint telemetry have been successfully analyzed."
         ),
     )
 
-    recommendations_count: int = Field(
+    critical_threats: int = Field(
         ...,
         ge = 0,
         description = (
-            "Number of security recommendations produced.."
+            "Number of threats that the LLM independently judges to be critical based on the complete evidence. This MUST be a reasoned LLM judgement and MUST NOT be calculated using a hard-coded formula or simple severity-field count."
         ),
     )
 
-    confidence: int = Field(
-        ...,
-        ge = 0.0,
-        le = 1.0,
-        description = (
-            "LLM confidence in the overall security recommendation assessment, expressed as value from 0.0 to 1.0."
-        ),
-    )
+def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
+    organization = state.get("organization", "UNKNOWN")
 
-    rationale: int = Field(
-        ...,
-        description = (
-            "Reasoning explaining why the recommendations were prioritized in the selected order."
-        ),
-    )
+    description = f""" 
+    You are the threat analysis specialist for:
 
-    report: int = Field(
-        ...,
-        description = (
-            "Complete markdown security intelligence report containing executive summary, key findings, incident response, prioritized recommendations, next steps, and human-review context where applicable."
-        ),
-    )
+    Organization: {organization}
+
+    Analyze the threats identified during the detection stage and determine thier likely attribution , severity, attack behavior and business impact.
+
+    SHARED INTELLIGENCE RECORD: 
+    {state}
+
+    You MUST use both of your deterministic data sources before completing the assessment:
+
+    1. Threat Intelligence Feed
+        - Review active threat actors.
+        - Review matched indicators of compromise.
+        - Review known malware families.
+        - Review linked campaigns.
+        - Use this evidence to support threat attribution.
+
+    2. Endpoint Detection and Response Telemetry
+        - Review compromised endpoints.
+        - Review process anamolies.
+        - Review lateral movement.
+        - Review persistence mechanisms.
+        - Review evidence of data extrafiltration.
+        - Use this evidence to establish whether threats are active and whether systems appear compromised.
+
+    Do not invent t
+    """
