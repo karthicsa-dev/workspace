@@ -182,7 +182,7 @@ def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
     return Task(
         description=description,
         expected_output=(
-            "A structured AnalysisAssessment containing threat_analysis, ."
+            "A structured AnalysisAssessment containing threat_analysis, the LLM-judged critical_threats count and analyzed."
         ),
         agent=agent,
         output_pydantic=AnalysisAssessment,
