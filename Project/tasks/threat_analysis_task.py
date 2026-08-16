@@ -115,5 +115,38 @@ def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
         - Review evidence of data extrafiltration.
         - Use this evidence to establish whether threats are active and whether systems appear compromised.
 
-    Do not invent t
+    Do not invent threat-intelligence or endpoint evidence that is not available from the tools or shared intelligence record.
+
+    THREAT ANALYSIS
+
+    For each meaningful threat identified:
+
+    - Identify the threat.
+    - Classify it using appropriate threat category.
+    - Assess its severity.
+    - Attribute it to a threat actor when the avilable evidence supports attribution.
+    - Identify relevant MITRE ATT&CK techniques or attack behaviors where supported by evidence.
+    - Explain the evidence supporting the finding.
+    - Explain the potential business impact.
+
+    Use the configured threat taxonomy where applicable:
+
+    {THREAT_CATEGORIES}
+
+    Use the configured severity taxonomy:
+
+    {SEVERITY_LEVELS}
+
+    Do not simply copy values from the input. Correlate the available evidence and apply cybersecurity reasoning.
+
+    CRITICAL THREAT JUDGEMENT - VERY IMPORTANT
+
+    You MUST independently determine the number of critical threats based on your analysis of the complete evidence.
+
+    The value of 'critical_threats':
+
+    - MUST be your own LLM Judgement.
+    - MUST represent the number of threats you determine are genuinely critical.
+    - MUST consider severity, evidence of active compromise, affected systems, attack progression, persistence, lateral movement, exfiltration, threat-actor activity and potential business impact.
+    
     """
