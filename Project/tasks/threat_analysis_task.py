@@ -18,59 +18,79 @@ from pydantic import BaseModel, Field
 from core.config import SEVERITY_LEVELS, THREAT_CATEGORIES
 
 
-class ThreatFinding(BaseModel):
-    """Structured analysis of an individual identified threat."""
+class ThreatActor(BaseModel):
+    """Structured threat-actor attribution."""
 
-    threat: str = Field(
+    name: str = Field(
         ...,
-        description="Name or concise description of the identified threat.",
+        description="Name of the attributed threat actor.",
     )
 
-    category: str = Field(
+    type: str = Field(
         ...,
         description=(
-            "Threat category. Prefer one of the configured threat "
-            "categories when applicable."
+            "Type of threat actor, such as ransomware group, "
+            "nation-state, cybercriminal group, or unknown."
         ),
     )
 
-    severity: str = Field(
+    motivation: str = Field(
+        ...,
+        description="Likely motivation of the threat actor.",
+    )
+
+
+class AttackPattern(BaseModel):
+    """Structured attack-pattern analysis."""
+
+    technique: str = Field(
         ...,
         description=(
-            "LLM-assessed severity of the threat: critical, high, "
-            "medium, low, or informational."
+            "MITRE ATT&CK technique or attack technique associated "
+            "with the observed activity."
         ),
     )
 
-    threat_actor: str = Field(
-        default="Unknown",
-        description=(
-            "Threat actor or adversary attributed to the threat when "
-            "supported by the available evidence."
-        ),
+    tactic: str = Field(
+        ...,
+        description="MITRE ATT&CK tactic associated with the technique.",
     )
 
-    techniques: List[str] = Field(
+    description: str = Field(
+        ...,
+        description="Description of how the attack pattern relates to the evidence.",
+    )
+
+
+class ThreatAnalysis(BaseModel):
+    """Structured threat-analysis findings."""
+
+    summary: str = Field(
+        ...,
+        description="Concise overall summary of the threat analysis.",
+    )
+
+    threat_actors: List[ThreatActor] = Field(
         default_factory=list,
         description=(
-            "MITRE ATT&CK techniques or attack behaviors associated "
-            "with the threat when supported by the evidence."
+            "Threat actors attributed to the observed activity based "
+            "on available evidence."
         ),
     )
 
-    evidence: str = Field(
-        ...,
+    attack_patterns: List[AttackPattern] = Field(
+        default_factory=list,
         description=(
-            "Evidence from threat intelligence and endpoint telemetry "
-            "supporting the analysis."
+            "Observed attack techniques and associated tactics."
         ),
     )
 
-    business_impact: str = Field(
-        ...,
+    business_impact: Dict[str, Any] = Field(
+        default_factory=dict,
         description=(
-            "Potential financial, operational, data, or reputational "
-            "impact of the threat."
+            "Assessment of potential business impact, including "
+            "operational, financial, data, regulatory, and reputational "
+            "impact where applicable."
         ),
     )
 
@@ -78,12 +98,9 @@ class ThreatFinding(BaseModel):
 class AnalysisAssessment(BaseModel):
     """Structured output produced by the Threat Analysis specialist."""
 
-    threat_analysis: List[ThreatFinding] = Field(
-        default_factory=list,
-        description=(
-            "Detailed analysis and attribution of the threats identified "
-            "from the available intelligence and endpoint evidence."
-        ),
+    threat_analysis: ThreatAnalysis = Field(
+        ...,
+        description="Structured analysis and attribution of detected threats.",
     )
 
     critical_threats: int = Field(
@@ -91,9 +108,9 @@ class AnalysisAssessment(BaseModel):
         ge=0,
         description=(
             "Number of threats that the LLM independently judges to be "
-            "critical based on the complete evidence. This MUST be a "
-            "reasoned LLM judgment and MUST NOT be calculated using a "
-            "hard-coded formula or simple severity-field count."
+            "critical based on the complete available evidence. This "
+            "must be an evidence-based LLM judgment and must not be "
+            "calculated using a hard-coded formula."
         ),
     )
 
@@ -113,10 +130,10 @@ def build_threat_analysis_task(
     """
     Build the threat-analysis CrewAI task.
 
-    The task instructs the LLM to correlate threat-intelligence and
-    endpoint-telemetry evidence, attribute threats where possible,
-    assess their severity and independently judge the number of
-    critical threats.
+    The task instructs the LLM to correlate external threat intelligence
+    with endpoint telemetry, attribute threats where possible, identify
+    attack patterns, assess business impact, and independently judge
+    the number of critical threats.
     """
 
     organization = state.get("organization", "UNKNOWN")
@@ -127,13 +144,13 @@ You are the Threat Analysis specialist for:
 Organization: {organization}
 
 Analyze the threats identified during the detection stage and determine
-their likely attribution, severity, attack behavior, and business impact.
+their likely attribution, attack patterns, severity, and business impact.
 
 SHARED INTELLIGENCE RECORD:
 {state}
 
-You MUST use both of your deterministic data sources before completing
-the assessment:
+You MUST use both deterministic security-data sources before completing
+your assessment:
 
 1. Threat Intelligence Feed
    - Review active threat actors.
@@ -156,28 +173,50 @@ available from the tools or shared intelligence record.
 
 THREAT ANALYSIS
 
-For each meaningful threat identified:
+Produce a concise overall analysis summary.
 
-- Identify the threat.
-- Classify it using an appropriate threat category.
-- Assess its severity.
-- Attribute it to a threat actor when the available evidence supports
-  attribution.
-- Identify relevant MITRE ATT&CK techniques or attack behaviors where
-  supported by the evidence.
-- Explain the evidence supporting the finding.
-- Explain the potential business impact.
+Identify and attribute threat actors where the available evidence
+supports attribution.
+
+For each relevant threat actor provide:
+
+- name
+- type
+- motivation
+
+Identify the attack patterns associated with the observed activity.
+
+For each attack pattern provide:
+
+- MITRE ATT&CK technique or attack technique
+- associated tactic
+- explanation of how the technique relates to the available evidence
 
 Use the configured threat taxonomy where applicable:
 
 {THREAT_CATEGORIES}
 
-Use the configured severity taxonomy:
+Use the configured severity taxonomy where applicable:
 
 {SEVERITY_LEVELS}
 
-Do not simply copy values from the input. Correlate the available
-evidence and apply cybersecurity reasoning.
+BUSINESS IMPACT
+
+Assess the potential impact of the observed threats.
+
+Consider, where applicable:
+
+- operational disruption
+- financial impact
+- sensitive-data exposure
+- regulatory/compliance impact
+- reputational damage
+- impact to critical or crown-jewel systems
+
+Represent the business impact as structured key/value information.
+
+Do not invent facts that are not supported by the available evidence.
+Distinguish observed evidence from reasonable cybersecurity assessment.
 
 CRITICAL THREAT JUDGMENT — VERY IMPORTANT
 
@@ -196,46 +235,50 @@ The value of `critical_threats`:
 - MUST NOT simply count records whose input severity happens to be
   "critical".
 - MUST NOT be derived from the configured critical-threat floor.
-- MUST NOT be artificially increased or decreased to force a
-  particular routing outcome.
+- MUST NOT be artificially increased or decreased to force a particular
+  routing outcome.
 
-The router will independently compare your resulting
-`critical_threats` value against the configured policy floor.
+The router will compare your resulting `critical_threats` value against
+the configured business-policy threshold.
 
-Your responsibility ends with making the best evidence-based
-cybersecurity judgment.
+Your responsibility is to make the best evidence-based cybersecurity
+judgment.
 
-ANALYSIS QUALITY
+CORRELATION REQUIREMENT
 
-Correlate external threat intelligence with internal endpoint evidence.
+Correlate the external threat-intelligence evidence with internal
+endpoint telemetry.
 
-For example, when threat-intelligence evidence identifies a known
-threat actor or malware family and endpoint telemetry independently
-shows behavior consistent with that threat, explain the correlation
-rather than treating the two observations as unrelated facts.
+For example, if threat intelligence identifies a known threat actor,
+malware family, or campaign and endpoint telemetry independently shows
+behavior consistent with that activity, explain the relationship in
+the analysis.
 
 Pay particular attention to:
 
-- confirmed compromise
-- lateral movement
-- persistence
-- data exfiltration
-- malicious processes
 - matched IOCs
+- known malware
 - active campaigns
+- compromised endpoints
+- process anomalies
+- lateral movement
+- persistence mechanisms
+- data exfiltration
 - critical business systems
 - potential operational disruption
-- potential financial and reputational impact
 
-Return ONLY the structured assessment represented by the required
-AnalysisAssessment schema.
+Do not simply copy the raw tool outputs.
+
+Return ONLY the structured AnalysisAssessment represented by the
+required schema.
 """
 
     return Task(
         description=description,
         expected_output=(
-            "A structured AnalysisAssessment containing threat_analysis, "
-            "the LLM-judged critical_threats count, and analyzed."
+            "A structured AnalysisAssessment containing threat_analysis "
+            "with summary, threat_actors, attack_patterns and "
+            "business_impact, plus critical_threats and analyzed."
         ),
         agent=agent,
         output_pydantic=AnalysisAssessment,
