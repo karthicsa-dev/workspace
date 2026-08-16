@@ -1,10 +1,14 @@
 """
 The CrewAI Flow for threat intelligence.
 
-Implement ThreatIntelligenceFlow: a CrewAI Flow whose steps are wired with @start, @listen and a
-@router (rejoining the mode branches with or_). The router reads the analyst's own judgement.
-See the problem description for the step methods, the routing labels, and the mode/rejoin structure.
+Implement ThreatIntelligenceFlow: a CrewAI Flow whose steps are wired with
+@start, @listen and a @router (rejoining the mode branches with or_).
+The router reads the analyst's own judgement.
+
+See the problem description for the step methods, the routing labels,
+and the mode/rejoin structure.
 """
+
 import time
 from typing import Any, Dict
 
@@ -29,17 +33,40 @@ from core.state import (
 )
 from utils.database import record_intel
 
+
 class ThreatIntelligenceFlow(Flow):
+    """
+    Main CrewAI Flow for the cybersecurity threat-intelligence pipeline.
+
+    The flow maintains exactly one shared intelligence record in:
+
+        self.state["intel"]
+
+    Every specialist reads from that record and returns its result to the
+    corresponding flow step, which updates the shared record.
+    """
+
     def __init__(self) -> None:
         super().__init__()
 
         self.detector = ThreatDetectionAgent()
-        self.analyst =  ThreatAnalysisAgent()
+        self.analyst = ThreatAnalysisAgent()
         self.responder = IncidentResponseAgent()
         self.advisor = SecurityRecommendationAgent()
 
+    # ------------------------------------------------------------------
+    # Step 1: Threat Detection
+    # ------------------------------------------------------------------
+
     @start()
     async def detect_threats(self, organization: str) -> Dict[str, Any]:
+        """
+        Create the intelligence record and run threat detection.
+
+        This is the only @start step. It initializes the shared record and
+        stores the workflow start timestamp before invoking the detector.
+        """
+
         intel = create_intel_state(
             {
                 "organization": organization,
@@ -62,6 +89,8 @@ class ThreatIntelligenceFlow(Flow):
                 result,
             )
 
+            # Preserve the specialist's result in the main intelligence
+            # record because these fields are consumed by later stages.
             self.state["intel"]["threat_data"] = result.get(
                 "threat_data",
                 {},
@@ -87,12 +116,15 @@ class ThreatIntelligenceFlow(Flow):
                 )
 
         except Exception as exc:
+            # The specialist contract says execute_async should never raise,
+            # but keep the Flow resilient if an unexpected implementation
+            # error occurs.
             add_error(
                 self.state["intel"],
                 str(exc),
                 self.detector.agent_name,
             )
-        
+
         self.state["intel"]["metrics"]["detection_seconds"] = round(
             time.perf_counter() - step_started,
             3,
@@ -100,8 +132,20 @@ class ThreatIntelligenceFlow(Flow):
 
         return self.state["intel"]
 
+    # ------------------------------------------------------------------
+    # Step 2: Threat Analysis
+    # ------------------------------------------------------------------
+
     @listen(detect_threats)
     async def analyze_threats(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze and attribute the detected threats.
+
+        The analyst's critical_threats value is deliberately preserved
+        as the LLM's structured judgment. No Python severity formula is
+        applied here.
+        """
+
         step_started = time.perf_counter()
 
         try:
@@ -141,7 +185,7 @@ class ThreatIntelligenceFlow(Flow):
                 str(exc),
                 self.analyst.agent_name,
             )
-        
+
         self.state["intel"]["metrics"]["analysis_seconds"] = round(
             time.perf_counter() - step_started,
             3,
@@ -149,17 +193,42 @@ class ThreatIntelligenceFlow(Flow):
 
         return self.state["intel"]
 
+    # ------------------------------------------------------------------
+    # Criticality Router
+    # ------------------------------------------------------------------
+
     @router(analyze_threats)
-    def route_by_criticality(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+    def route_by_criticality(self, intel: Dict[str, Any]) -> str:
+        """
+        Route the workflow based on the analyst's own LLM judgment.
+
+        This router is intentionally read-only. It does not modify the
+        intelligence record.
+
+        critical_threats >= config.critical_threat_floor
+            -> PRIORITY mode + HITL
+
+        critical_threats < config.critical_threat_floor
+            -> STANDARD mode
+        """
+
         critical_threats = intel.get("critical_threats", 0)
 
         if critical_threats >= config.critical_threat_floor:
             return ROUTE_PRIORITY
-        
+
         return ROUTE_STANDARD
+
+    # ------------------------------------------------------------------
+    # Mode branches
+    # ------------------------------------------------------------------
 
     @listen(ROUTE_PRIORITY)
     def flag_priority_response(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Mark the run as priority and require human SOC review.
+        """
+
         self.state["intel"]["response_mode"] = "priority"
         self.state["intel"]["hitl"]["required"] = True
 
@@ -167,13 +236,32 @@ class ThreatIntelligenceFlow(Flow):
 
     @listen(ROUTE_STANDARD)
     def mark_standard_response(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Mark the run as standard.
+
+        Standard runs do not require human approval.
+        """
+
         self.state["intel"]["response_mode"] = "standard"
         self.state["intel"]["hitl"]["required"] = False
 
         return self.state["intel"]
 
+    # ------------------------------------------------------------------
+    # Step 3: Incident Response
+    # ------------------------------------------------------------------
+
     @listen(or_(flag_priority_response, mark_standard_response))
-    async def respond_to_incidents(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+    async def respond_to_incidents(
+        self,
+        intel: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Rejoin the priority/standard branches and execute incident response.
+
+        Both routing branches always reach this step.
+        """
+
         step_started = time.perf_counter()
 
         try:
@@ -217,7 +305,7 @@ class ThreatIntelligenceFlow(Flow):
                 str(exc),
                 self.responder.agent_name,
             )
-        
+
         self.state["intel"]["metrics"]["response_seconds"] = round(
             time.perf_counter() - step_started,
             3,
@@ -225,8 +313,19 @@ class ThreatIntelligenceFlow(Flow):
 
         return self.state["intel"]
 
+    # ------------------------------------------------------------------
+    # Step 4: Security Recommendations
+    # ------------------------------------------------------------------
+
     @listen(respond_to_incidents)
-    async def recommend_security(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+    async def recommend_security(
+        self,
+        intel: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Generate prioritized security recommendations and the final report.
+        """
+
         step_started = time.perf_counter()
 
         try:
@@ -268,7 +367,10 @@ class ThreatIntelligenceFlow(Flow):
             if result.get("status") == "error":
                 add_error(
                     self.state["intel"],
-                    result.get("error", "Security recommendation Generation failed."),
+                    result.get(
+                        "error",
+                        "Security recommendation generation failed.",
+                    ),
                     self.advisor.agent_name,
                 )
 
@@ -278,7 +380,7 @@ class ThreatIntelligenceFlow(Flow):
                 str(exc),
                 self.advisor.agent_name,
             )
-        
+
         self.state["intel"]["metrics"]["recommendation_seconds"] = round(
             time.perf_counter() - step_started,
             3,
@@ -286,8 +388,22 @@ class ThreatIntelligenceFlow(Flow):
 
         return self.state["intel"]
 
+    # ------------------------------------------------------------------
+    # Finalization
+    # ------------------------------------------------------------------
+
     @listen(recommend_security)
-    def finalize_intelligence(self, intel: Dict[str, Any]) -> Dict[str, Any]:
+    def finalize_intelligence(
+        self,
+        intel: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Finalize the intelligence record and persist it to SQLite.
+
+        Critical runs remain QUEUED_FOR_REVIEW. Standard runs are completed
+        automatically.
+        """
+
         workflow_started = self.state.get("workflow_started_at")
         if workflow_started is not None:
             total_seconds = round(
@@ -306,5 +422,7 @@ class ThreatIntelligenceFlow(Flow):
             final_status,
         )
 
+        # Persist the finished intelligence record to the SQLite audit trail.
         record_intel(self.state["intel"])
+
         return self.state["intel"]
