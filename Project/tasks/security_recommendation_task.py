@@ -15,46 +15,41 @@ from typing import Any, Dict, List
 from crewai import Agent, Task
 from pydantic import BaseModel, Field
 
+from core.config import SECURITY_FRAMEWORKS
+
 
 class SecurityRecommendation(BaseModel):
-    """A prioritized security improvement recommendation."""
+    """A single prioritized security recommendation."""
 
-    priority: int = Field(
+    priority: str = Field(
         ...,
-        ge=1,
         description=(
-            "Priority rank of the recommendation. "
-            "1 represents the highest priority."
+            "Priority of the recommendation. Use critical, high, "
+            "medium, or low."
         ),
     )
 
-    title: str = Field(
-        ...,
-        description="Short descriptive title for the recommendation.",
-    )
-
-    severity: str = Field(
+    category: str = Field(
         ...,
         description=(
-            "Risk/severity classification of the recommendation, "
-            "such as Critical, High, Medium, or Low."
+            "Security-control or recommendation category, such as "
+            "identity, endpoint, network, data protection, vulnerability "
+            "management, monitoring, governance, or incident response."
         ),
     )
 
-    framework: str = Field(
+    control: str = Field(
         ...,
         description=(
-            "Relevant security or compliance framework/control mapping, "
-            "such as NIST CSF, CIS Controls, MITRE ATT&CK, ISO 27001, "
-            "or SANS Top 20."
+            "Relevant security control or framework control that the "
+            "recommendation addresses."
         ),
     )
 
-    description: str = Field(
+    recommendation: str = Field(
         ...,
         description=(
-            "Detailed explanation of the recommended security improvement "
-            "and why it should be implemented."
+            "Specific actionable security recommendation."
         ),
     )
 
@@ -75,14 +70,14 @@ class RoadmapItem(BaseModel):
         ),
     )
 
-    priority: str = Field(
+    effort: str = Field(
         ...,
-        description="Priority of the roadmap initiative.",
+        description="Estimated implementation effort.",
     )
 
-    impact: str = Field(
+    roi: str = Field(
         ...,
-        description="Expected security or business impact.",
+        description="Expected security/business return or benefit.",
     )
 
 
@@ -93,8 +88,8 @@ class RecommendationAssessment(BaseModel):
         default_factory=list,
         description=(
             "Prioritized security recommendations derived from the "
-            "threat intelligence, incident response, compliance benchmark, "
-            "and security posture findings."
+            "complete threat-intelligence, incident-response, compliance, "
+            "and security-posture evidence."
         ),
     )
 
@@ -117,16 +112,16 @@ class RecommendationAssessment(BaseModel):
         ge=0.0,
         le=1.0,
         description=(
-            "LLM confidence in the overall security recommendation "
-            "assessment, expressed as a value from 0.0 to 1.0."
+            "Confidence in the overall recommendation assessment, "
+            "between 0.0 and 1.0."
         ),
     )
 
     rationale: str = Field(
         ...,
         description=(
-            "Reasoning explaining why the recommendations were prioritized "
-            "in the selected order."
+            "Reasoning explaining why the recommendations were "
+            "prioritized in their selected order."
         ),
     )
 
@@ -146,7 +141,7 @@ def build_security_recommendation_task(
     state: Dict[str, Any],
 ) -> Task:
     """
-    Build the security recommendation CrewAI task.
+    Build the security-recommendation CrewAI task.
 
     The task instructs the LLM to synthesize the complete intelligence
     record with compliance and security-posture evidence and produce
@@ -157,96 +152,81 @@ def build_security_recommendation_task(
     organization = state.get("organization", "UNKNOWN")
 
     description = f"""
-You are the final security recommendation specialist for:
+You are the Security Recommendation specialist for:
 
 Organization: {organization}
 
 Your responsibility is to synthesize the complete threat-intelligence
-record and produce prioritized security improvements and a final
-security intelligence report.
+record and produce prioritized security recommendations, an
+implementation roadmap, and the final security intelligence report.
 
 SHARED INTELLIGENCE RECORD:
 {state}
 
-Before producing your recommendations, use BOTH deterministic tools:
+You MUST use both deterministic tools before producing the final
+assessment:
 
 1. Compliance Framework Benchmark
-   - Review the organization's current standing against relevant
-     security/compliance frameworks.
+   - Review the organization's standing against relevant security
+     frameworks.
    - Identify meaningful control or compliance gaps.
-   - Map recommendations to appropriate reference frameworks.
+   - Use the findings to support framework/control recommendations.
 
 2. Security Posture Audit
    - Review the organization's overall security posture.
-   - Identify weaknesses, control deficiencies, and areas requiring
-     improvement.
-   - Use the posture findings together with the incident evidence when
-     prioritizing recommendations.
+   - Identify security-control weaknesses and improvement areas.
+   - Use the findings to prioritize recommendations.
 
-Do not invent compliance or posture findings that are not available
-from the tools or shared intelligence record.
+Do not invent compliance or security-posture findings that are not
+available from the tools or shared intelligence record.
 
-SYNTHESIS REQUIREMENTS
+AVAILABLE REFERENCE FRAMEWORKS:
 
-Consider all available evidence, including:
+{SECURITY_FRAMEWORKS}
 
-- detected threats
-- threat severity
-- compromised systems
-- threat actors
-- indicators of compromise
-- attack techniques
-- lateral movement
-- persistence mechanisms
-- data exfiltration
-- forensic findings
-- containment requirements
-- critical assets and crown-jewel systems
-- vulnerabilities
-- compliance gaps
-- security posture weaknesses
-- potential financial, operational, and reputational impact
+RECOMMENDATIONS
 
-Produce a prioritized list of security recommendations.
+Produce a prioritized list of actionable security recommendations.
 
-Each recommendation must include:
+For every recommendation provide:
 
-- a unique priority rank
-- a concise title
-- severity
-- relevant security/compliance framework mapping
-- a practical description of the recommended improvement
+- priority
+- category
+- relevant security control or framework control
+- actionable recommendation
 
 Prioritize recommendations based on:
 
 1. Immediate risk to the organization.
 2. Active compromise and containment requirements.
 3. Protection of critical and crown-jewel assets.
-4. Likelihood and impact of recurrence.
+4. Likelihood of recurrence.
 5. Exploitable vulnerabilities and control weaknesses.
-6. Compliance/security-framework gaps.
+6. Compliance and framework gaps.
 7. Long-term security resilience.
 
-Do not simply repeat the incident-response actions. Recommendations should
-address both immediate remediation and longer-term security improvements.
+Do not simply repeat the incident-response actions.
+
+Recommendations should address both immediate remediation and
+longer-term security improvements.
 
 ROADMAP
 
 Create a practical implementation roadmap.
 
-Where applicable, use time horizons such as:
+Use appropriate timeframes such as:
 
 - 0-72 Hours
 - 1-4 Weeks
 - 1-6 Months
 - Ongoing
 
-Each roadmap item must identify:
+For each roadmap item provide:
 
 - initiative
 - timeframe
-- priority
-- expected impact
+- effort
+- expected security/business return (roi)
 
 CONFIDENCE
 
@@ -256,15 +236,27 @@ available evidence.
 
 RATIONALE
 
-Explain the reasoning behind the prioritization. The rationale should
-connect the recommendations to the observed threats, affected assets,
-business impact, compliance posture, and security posture.
+Explain why the recommendations were prioritized in their selected
+order.
+
+Connect the rationale to:
+
+- observed threats
+- threat severity
+- compromised systems
+- critical assets
+- forensic findings
+- incident-response requirements
+- vulnerabilities
+- compliance gaps
+- security-posture weaknesses
+- potential business impact
 
 FINAL REPORT
 
 Produce a complete Markdown security intelligence report.
 
-The report should contain, where applicable:
+Use the following sections where applicable:
 
 # Security Intelligence Report
 
@@ -275,7 +267,8 @@ business impact, and immediate concerns.
 
 ## Key Findings
 
-Summarize the most important threat-analysis and forensic findings.
+Summarize the most important detection, threat-analysis, and forensic
+findings.
 
 ## Incident Response
 
@@ -284,8 +277,8 @@ forensic findings.
 
 ## Prioritised Recommendations
 
-Present the prioritized security recommendations and their framework
-mapping.
+Present the prioritized security recommendations and their relevant
+controls/frameworks.
 
 ## Next Steps
 
@@ -303,8 +296,8 @@ critical incident is awaiting approval.
 The report must be useful to both technical security personnel and
 business stakeholders.
 
-Return ONLY the structured assessment represented by the required
-RecommendationAssessment schema.
+Return ONLY the structured RecommendationAssessment represented by
+the required schema.
 """
 
     return Task(
@@ -312,7 +305,7 @@ RecommendationAssessment schema.
         expected_output=(
             "A structured RecommendationAssessment containing "
             "security_recommendations, roadmap, recommendations_count, "
-            "confidence, rationale, and a complete Markdown report."
+            "confidence, rationale, and report."
         ),
         agent=agent,
         output_pydantic=RecommendationAssessment,
