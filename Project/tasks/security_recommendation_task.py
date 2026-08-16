@@ -261,8 +261,8 @@ def build_security_recommendation_task(agent: Agent, state: Dict[str, Any]) -> T
     return Task(
         description=description,
         expected_output=(
-            "A structured RecommendationAssessment containing response_actions, forensic_findings, containment_summary, and responded."
+            "A structured RecommendationAssessment containing security_recommendations, roadmap, recommendations_count, confidence, rationale and a complete Markdown report."
         ),
         agent=agent,
-        output_pydantic=ResponseAssessment,
+        output_pydantic=RecommendationAssessment,
     )
