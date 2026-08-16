@@ -180,6 +180,89 @@ def build_security_recommendation_task(agent: Agent, state: Dict[str, Any]) -> T
     - relevant security/compliance framework mapping
     - a practical description of the recommended improvement
 
-    
+    Prioritize recommendations based on:
+
+    1. Immediate risk to the organization.
+    2. Active compromise and containment requirements.
+    3. Protection of critical and crown-jewel assets.
+    4. Likelihood and impact of recurrence.
+    5. Exploitable vulnerabilities and controllable weaknesses.
+    6. Compliance/security-framework gaps.
+    7. Long-term security resiliance.
+
+    Do not simply repeat the incident-response actions. Recommendations should address both immediate remediation and longer-term security improvements.
+
+    ROADMAP
+
+    Create a practical implementation roadmap.
+
+    Where applicable, use the time horizons such as:
+
+    - 0-72 Hours
+    - 1-4 Weeks
+    - 1-6 Months
+    - Ongoing
+
+    Each roadmap item must identify:
+
+    - initiative
+    - timeframe
+    - priority
+    - expected impact
+
+    CONFIDENCE
+
+    Provide a confidence value between 0.0 and 1.0 representing your confidence in the overall recommendation assessment based on the available evidence.
+
+    RATIONALE
+
+    Explain the reasoning behind the prioritization. The rationale should connect the recommendations to the observed threats, affected assets, business impace, compliance posture, and security posture.
+
+    FINAL REPORT
+
+    Produce a complete Markdown security intelligence report.
+
+    The report should contain, where applicable:
+
+    # Security Intelligence Report
+
+    ## Executive Summary
+
+    Summarize the overall security situation, major threats, severity, business impact, and immediate concerns.
+
+    ## Key Findings
+
+    Summarize the most important threat-analysis and forensic findings.
+
+    ## Incident Response
+
+    Summarize the response actions, containment strategy, and relevant forensic findings.
+
+    ## Prioritized Recommendations
+
+    Present the prioritized security recommendations and their framework mapping.
+
+    ## Next steps
+
+    Present the recommended implementation roadmap and immediate actions.
+
+    ## Human Review - Critical Incident
+
+    If the intelligence record indicates that human review is required, clearly identify that the incident requires SOC analyst review and approval before the containment plan is adopted.
+
+    If the human review is not required, do not incorrectly state that a critical incident is awaiting approval.
+
+    The report must be useful to both technical security personnel and business stakeholders.
+
+    Return ONLY the structured assessment represented by the required RecommendationAssessment schema.
 
     """
+
+    return Task(
+        description=description,
+        expected_output=(
+            "A structured RecommendationAssessment containing response_actions, forensic_findings, containment_summary, and responded."
+        ),
+        agent=agent,
+        output_pydantic=ResponseAssessment,
+    )
