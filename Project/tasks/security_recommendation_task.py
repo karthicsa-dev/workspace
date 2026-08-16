@@ -130,5 +130,56 @@ def build_security_recommendation_task(agent: Agent, state: Dict[str, Any]) -> T
 
     Organization: {organization}
 
-    Your responsibility is to synthesize the complete threat-intelligence record and produce prioritized 
+    Your responsibility is to synthesize the complete threat-intelligence record and produce prioritized security improvements and a final security intelligence report.
+
+    SHARED INTELLIGENCE RECORD:
+    {state}
+
+    Before producing your recommendations, use BOTH deterministic tools:
+
+    1. Compliance Framework Benchmark
+        - Review the organization's current standing against relevant security/compliance frameworks.
+        - Identify meaningful control or compliance gaps.
+        - Map recommendations to appropriate frameworks.
+
+    2. Security Posture Audit
+        - Review the organization's overall security posture.
+        - Identify weaknesses, control deficiencies, and areas requiring improvement.
+        - Use the posture findings together with the incident evidence when prioritizing recommendations.
+
+    Do not invent compliance or posture findings that are not available  from the tools or sahred intelligence record.
+
+    SYNTHESIS REQUIREMENTS
+
+    Consider all available evidence, including:
+
+    - detected threats
+    - threat severity
+    - compromised systems
+    - threat actors
+    - indicators of compromise
+    - attack techniques
+    - lateral movements
+    - persistent mechanisms
+    - data extrafiltration
+    - forensic findings
+    - containment requirements
+    - critical assets and crown-jewel systems
+    - vulnerabilities
+    - compliance gaps
+    - security posture weaknesses
+    - potential financial, operational and reputational impact
+
+    Produce a prioritized list of security recommendations.
+
+    Each recommendation must include:
+
+    - a unique priority rank
+    - a concise title
+    - severity
+    - relevant security/compliance framework mapping
+    - a practical description of the recommended improvement
+
+    
+
     """
