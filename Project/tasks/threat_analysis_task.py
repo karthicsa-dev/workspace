@@ -87,56 +87,55 @@ class AnalysisAssessment(BaseModel):
         ),
     )
 
-    detected: str = Field(
+    detected: bool = Field(
         ...,
         description = (
-            "Potential financial, operational and reputational impact of the threat."
+            "True when meaningful cybersecurity threats are detected from the available evidence."
         ),
     )
 
-def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
+def build_threat_detection_task(agent: Agent, state: Dict[str, Any]) -> Task:
     organization = state.get("organization", "UNKNOWN")
 
     description = f""" 
-    You are the threat analysis specialist for:
+    You are the threat detection specialist for:
 
     Organization: {organization}
 
-    Analyze the threats identified during the detection stage and determine thier likely attribution , severity, attack behavior and business impact.
+    Your responsibility is to identify meaningful cybersecurity threats from the organization's available SIEM and network intrusion-detection evidence. 
 
     SHARED INTELLIGENCE RECORD: 
     {state}
 
     You MUST use both of your deterministic data sources before completing the assessment:
 
-    1. Threat Intelligence Feed
-        - Review active threat actors.
-        - Review matched indicators of compromise.
-        - Review known malware families.
-        - Review linked campaigns.
-        - Use this evidence to support threat attribution.
+    1. SIEM Event Monitor
+        - Review the number and severity of security events.
+        - Review alerts raised.
+        - Review severity distribution.
+        - Review event sources.
+        - Review failed authentication attempts.
+        - Use this information to identify suspicious or potentially malicious activity.
 
-    2. Endpoint Detection and Response Telemetry
-        - Review compromised endpoints.
-        - Review process anamolies.
-        - Review lateral movement.
-        - Review persistence mechanisms.
-        - Review evidence of data extrafiltration.
-        - Use this evidence to establish whether threats are active and whether systems appear compromised.
+    2. Network Intrusion Detection Monitor
+        - Review intrusion alerts.
+        - Review blocked attacks.
+        - Review malicious IPs.
+        - Review firerwall denies.
+        - Review attack vectors.
+        - Use this information to identify active network threats.
 
-    Do not invent threat-intelligence or endpoint evidence that is not available from the tools or shared intelligence record.
+    Do not invent telemetry or security events that are not available from the tools or shared intelligence record.
 
-    THREAT ANALYSIS
+    THREAT DETECTION
 
-    For each meaningful threat identified:
+    For each meaningful threat identified, provide:
 
-    - Identify the threat.
-    - Classify it using appropriate threat category.
-    - Assess its severity.
-    - Attribute it to a threat actor when the avilable evidence supports attribution.
-    - Identify relevant MITRE ATT&CK techniques or attack behaviors where supported by evidence.
-    - Explain the evidence supporting the finding.
-    - Explain the potential business impact.
+    - threat name/description.
+    - threat category.
+    - severity.
+    - avilable supporting evidence.
+    - affected systems when they can be reasonably be identified
 
     Use the configured threat taxonomy where applicable:
 
@@ -146,46 +145,21 @@ def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
 
     {SEVERITY_LEVELS}
 
-    Do not simply copy values from the input. Correlate the available evidence and apply cybersecurity reasoning.
+    Do not treat every security event or blocked attack as confirmed compromise. Distinguish between:
 
-    CRITICAL THREAT JUDGEMENT - VERY IMPORTANT
+    - normal/background activity
+    - suspicious activity
+    - attempted attacks
+    - successfully detected malicious activity
+    - evidence suggesting actual compromise
 
-    You MUST independently determine the number of critical threats based on your analysis of the complete evidence.
+    Correlate SIEM and Network IDS whenever possible.'
 
-    The value of 'critical_threats':
+    THREAT SEVERITY SCORE - VERY IMPORTANT
 
-    - MUST be your own LLM Judgement.
-    - MUST represent the number of threats you determine are genuinely critical.
-    - MUST consider severity, evidence of active compromise, affected systems, attack progression, persistence, lateral movement, exfiltration, threat-actor activity and potential business impact.
-    - MUST NOT be calculated using python formula.
-    - MUST NOT simply count records whose input severity happens to be "critical"
-    - MUST NOT be derived from the configured critical-threat floor.
-    - MUST NOT be artifically increased or decreased to force a particular outcome.
+    Produce an overall 'threat_severity_score' between 0 and 100.
 
-    The router will independently compare your resulting 'critical_threats' value against the configured policy floor.
-
-    Your responsibility ends with making the best evidence-based cybersecurity judgement.
-
-    ANALYSIS QUALITY
-
-    Correlate external threat intelligence with internal endpoint evidence.
-
-    For example, when threat-intelligence evidence identifies a known threat actor or malware family and endpoint telemetry independently shows behavior consistent with threat, explain the correlation rather than treating the two observations as unrelated facts.
-
-    Pay particular attention to:
-
-    - confirmed compromise
-    - lateral movement
-    - persistence
-    - data exfiltration
-    - malicious processes
-    - matched IOCs
-    - active campaigns
-    - critical business systems
-    - potential operational disruption
-    - potential financial and reputational impact
-
-    Return ONLY the structured assessment represented by the required AnalysisAssessment schema.
+    
     """
 
     return Task(
