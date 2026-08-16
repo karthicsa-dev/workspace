@@ -20,10 +20,11 @@ from core.config import config
 @tool("Compliance Framework Benchmark")
 def compliance_benchmark_tool(organization: str) -> Dict[str, Any]:
     """
-    Retrieve the compliance-framework benchmark for an organization.
+    Retrieve compliance-framework benchmark data for an organization.
 
-    The tool reads deterministic data from data/threat_store.json.
-    No LLM reasoning or dynamic scoring is performed by the tool.
+    The tool reads deterministic compliance data from
+    data/threat_store.json. It does not perform LLM reasoning,
+    compliance scoring, or recommendation generation.
 
     Args:
         organization: Organization whose compliance benchmark should
@@ -59,7 +60,7 @@ def compliance_benchmark_tool(organization: str) -> Dict[str, Any]:
         }
 
     compliance_benchmark = organization_data.get(
-        "compliance_benchmark",
+        "compliance",
         {},
     )
 
