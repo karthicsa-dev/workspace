@@ -125,7 +125,7 @@ class ThreatIntelligenceFlow(Flow):
                 self.detector.agent_name,
             )
 
-        self.state["intel"]["metrics"]["detection_seconds"] = round(
+        self.state["intel"]["metrics"]["detector"] = round(
             time.perf_counter() - step_started,
             3,
         )
@@ -186,7 +186,7 @@ class ThreatIntelligenceFlow(Flow):
                 self.analyst.agent_name,
             )
 
-        self.state["intel"]["metrics"]["analysis_seconds"] = round(
+        self.state["intel"]["metrics"]["analyst"] = round(
             time.perf_counter() - step_started,
             3,
         )
@@ -306,7 +306,7 @@ class ThreatIntelligenceFlow(Flow):
                 self.responder.agent_name,
             )
 
-        self.state["intel"]["metrics"]["response_seconds"] = round(
+        self.state["intel"]["metrics"]["responder"] = round(
             time.perf_counter() - step_started,
             3,
         )
@@ -381,7 +381,7 @@ class ThreatIntelligenceFlow(Flow):
                 self.advisor.agent_name,
             )
 
-        self.state["intel"]["metrics"]["recommendation_seconds"] = round(
+        self.state["intel"]["metrics"]["advisor"] = round(
             time.perf_counter() - step_started,
             3,
         )
