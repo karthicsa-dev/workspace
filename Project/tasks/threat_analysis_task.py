@@ -148,5 +148,42 @@ def build_threat_analysis_task(agent: Agent, state: Dict[str, Any]) -> Task:
     - MUST be your own LLM Judgement.
     - MUST represent the number of threats you determine are genuinely critical.
     - MUST consider severity, evidence of active compromise, affected systems, attack progression, persistence, lateral movement, exfiltration, threat-actor activity and potential business impact.
-    
+    - MUST NOT be calculated using python formula.
+    - MUST NOT simply count records whose input severity happens to be "critical"
+    - MUST NOT be derived from the configured critical-threat floor.
+    - MUST NOT be artifically increased or decreased to force a particular outcome.
+
+    The router will independently compare your resulting 'critical_threats' value against the configured policy floor.
+
+    Your responsibility ends with making the best evidence-based cybersecurity judgement.
+
+    ANALYSIS QUALITY
+
+    Correlate external threat intelligence with internal endpoint evidence.
+
+    For example, when threat-intelligence evidence identifies a known threat actor or malware family and endpoint telemetry independently shows behavior consistent with threat, explain the correlation rather than treating the two observations as unrelated facts.
+
+    Pay particular attention to:
+
+    - confirmed compromise
+    - lateral movement
+    - persistence
+    - data exfiltration
+    - malicious processes
+    - matched IOCs
+    - active campaigns
+    - critical business systems
+    - potential operational disruption
+    - potential financial and reputational impact
+
+    Return ONLY the structured assessment represented by the required AnalysisAssessment schema.
     """
+
+    return Task(
+        description=description,
+        expected_output=(
+            "A structured AnalysisAssessment containing threat_analysis, ."
+        ),
+        agent=agent,
+        output_pydantic=AnalysisAssessment,
+    )
