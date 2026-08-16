@@ -1,171 +1,241 @@
 """
 Threat Analysis task.
 
-Implement build_threat_analysis_task(agent, state) and the AnalysisAssessment output schema.
-The task instructs the agent to analyze the threats and count the critical_threats.
+Implement build_threat_analysis_task(agent, state) and the
+AnalysisAssessment output schema.
+
+The task instructs the agent to analyze the threats and count the
+critical_threats.
+
 See the problem description for the output fields and the schema.
 """
+
 from typing import Any, Dict, List
 
-from crewai import Agent, task
+from crewai import Agent, Task
 from pydantic import BaseModel, Field
 
 from core.config import SEVERITY_LEVELS, THREAT_CATEGORIES
 
+
 class ThreatFinding(BaseModel):
+    """Structured analysis of an individual identified threat."""
+
     threat: str = Field(
         ...,
-        description = (
-            "Name or concise description of the identified threat."
-        ),
+        description="Name or concise description of the identified threat.",
     )
 
     category: str = Field(
         ...,
-        description = (
-            "Threat category. Prefer one of the configured threat categories when applicable."
+        description=(
+            "Threat category. Prefer one of the configured threat "
+            "categories when applicable."
         ),
     )
 
     severity: str = Field(
         ...,
-        description = (
-            "LLM-assessed severity classification of the threat, such as Informational, High, Medium or Low."
+        description=(
+            "LLM-assessed severity of the threat: critical, high, "
+            "medium, low, or informational."
         ),
     )
 
     threat_actor: str = Field(
-        default="UNKNOWN",
-        description = (
-            "Threat actor or adversary attributed to the threat when supported by the available evidence."
+        default="Unknown",
+        description=(
+            "Threat actor or adversary attributed to the threat when "
+            "supported by the available evidence."
         ),
     )
 
     techniques: List[str] = Field(
         default_factory=list,
-        description = (
-            "MITRE ATT&CK techniques or attack behaviors associated with the threat when supported by the evidence."
+        description=(
+            "MITRE ATT&CK techniques or attack behaviors associated "
+            "with the threat when supported by the evidence."
         ),
     )
 
     evidence: str = Field(
         ...,
-        description = (
-            "Evidence from threat intelligence and endpoint telemetry supporting the analysts."
+        description=(
+            "Evidence from threat intelligence and endpoint telemetry "
+            "supporting the analysis."
         ),
     )
 
     business_impact: str = Field(
         ...,
-        description = (
-            "Potential financial, operational and reputational impact of the threat."
+        description=(
+            "Potential financial, operational, data, or reputational "
+            "impact of the threat."
         ),
     )
+
 
 class AnalysisAssessment(BaseModel):
+    """Structured output produced by the Threat Analysis specialist."""
+
     threat_analysis: List[ThreatFinding] = Field(
-        default_factory = list,
-        description = (
-            "Detailed analysis and attribution of the threats identified from the available intelligence and endpoint evidence."
+        default_factory=list,
+        description=(
+            "Detailed analysis and attribution of the threats identified "
+            "from the available intelligence and endpoint evidence."
         ),
     )
 
-    threat_severity_score: float = Field(
+    critical_threats: int = Field(
         ...,
-        ge = 0.0,
-        le = 100.0,
-        description = (
-            "Overall threat severity score from 0 to 100. This value MUST be the LLM's own evidence based cybersecurity judgement and MUST NOT be calculated using a hard-coded formula."
+        ge=0,
+        description=(
+            "Number of threats that the LLM independently judges to be "
+            "critical based on the complete evidence. This MUST be a "
+            "reasoned LLM judgment and MUST NOT be calculated using a "
+            "hard-coded formula or simple severity-field count."
         ),
     )
 
-    compromised_systems: int = Field(
+    analyzed: bool = Field(
         ...,
-        ge = 0,
-        description = (
-            "Number of systems assessed as potentially compromised based on the available detection evidence."
+        description=(
+            "True when the available threat intelligence and endpoint "
+            "telemetry have been successfully analyzed."
         ),
     )
 
-    detected: bool = Field(
-        ...,
-        description = (
-            "True when meaningful cybersecurity threats are detected from the available evidence."
-        ),
-    )
 
-def build_threat_detection_task(agent: Agent, state: Dict[str, Any]) -> Task:
+def build_threat_analysis_task(
+    agent: Agent,
+    state: Dict[str, Any],
+) -> Task:
+    """
+    Build the threat-analysis CrewAI task.
+
+    The task instructs the LLM to correlate threat-intelligence and
+    endpoint-telemetry evidence, attribute threats where possible,
+    assess their severity and independently judge the number of
+    critical threats.
+    """
+
     organization = state.get("organization", "UNKNOWN")
 
-    description = f""" 
-    You are the threat detection specialist for:
+    description = f"""
+You are the Threat Analysis specialist for:
 
-    Organization: {organization}
+Organization: {organization}
 
-    Your responsibility is to identify meaningful cybersecurity threats from the organization's available SIEM and network intrusion-detection evidence. 
+Analyze the threats identified during the detection stage and determine
+their likely attribution, severity, attack behavior, and business impact.
 
-    SHARED INTELLIGENCE RECORD: 
-    {state}
+SHARED INTELLIGENCE RECORD:
+{state}
 
-    You MUST use both of your deterministic data sources before completing the assessment:
+You MUST use both of your deterministic data sources before completing
+the assessment:
 
-    1. SIEM Event Monitor
-        - Review the number and severity of security events.
-        - Review alerts raised.
-        - Review severity distribution.
-        - Review event sources.
-        - Review failed authentication attempts.
-        - Use this information to identify suspicious or potentially malicious activity.
+1. Threat Intelligence Feed
+   - Review active threat actors.
+   - Review matched indicators of compromise.
+   - Review known malware families.
+   - Review linked campaigns.
+   - Use this evidence to support threat attribution.
 
-    2. Network Intrusion Detection Monitor
-        - Review intrusion alerts.
-        - Review blocked attacks.
-        - Review malicious IPs.
-        - Review firerwall denies.
-        - Review attack vectors.
-        - Use this information to identify active network threats.
+2. Endpoint Detection and Response Telemetry
+   - Review compromised endpoints.
+   - Review process anomalies.
+   - Review lateral movement.
+   - Review persistence mechanisms.
+   - Review evidence of data exfiltration.
+   - Use this evidence to establish whether threats are active and
+     whether systems appear compromised.
 
-    Do not invent telemetry or security events that are not available from the tools or shared intelligence record.
+Do not invent threat-intelligence or endpoint evidence that is not
+available from the tools or shared intelligence record.
 
-    THREAT DETECTION
+THREAT ANALYSIS
 
-    For each meaningful threat identified, provide:
+For each meaningful threat identified:
 
-    - threat name/description.
-    - threat category.
-    - severity.
-    - avilable supporting evidence.
-    - affected systems when they can be reasonably be identified
+- Identify the threat.
+- Classify it using an appropriate threat category.
+- Assess its severity.
+- Attribute it to a threat actor when the available evidence supports
+  attribution.
+- Identify relevant MITRE ATT&CK techniques or attack behaviors where
+  supported by the evidence.
+- Explain the evidence supporting the finding.
+- Explain the potential business impact.
 
-    Use the configured threat taxonomy where applicable:
+Use the configured threat taxonomy where applicable:
 
-    {THREAT_CATEGORIES}
+{THREAT_CATEGORIES}
 
-    Use the configured severity taxonomy:
+Use the configured severity taxonomy:
 
-    {SEVERITY_LEVELS}
+{SEVERITY_LEVELS}
 
-    Do not treat every security event or blocked attack as confirmed compromise. Distinguish between:
+Do not simply copy values from the input. Correlate the available
+evidence and apply cybersecurity reasoning.
 
-    - normal/background activity
-    - suspicious activity
-    - attempted attacks
-    - successfully detected malicious activity
-    - evidence suggesting actual compromise
+CRITICAL THREAT JUDGMENT — VERY IMPORTANT
 
-    Correlate SIEM and Network IDS whenever possible.'
+You MUST independently determine the number of critical threats based
+on your analysis of the complete evidence.
 
-    THREAT SEVERITY SCORE - VERY IMPORTANT
+The value of `critical_threats`:
 
-    Produce an overall 'threat_severity_score' between 0 and 100.
+- MUST be your own LLM judgment.
+- MUST represent the number of threats you determine are genuinely
+  critical.
+- MUST consider severity, evidence of active compromise, affected
+  systems, attack progression, persistence, lateral movement,
+  exfiltration, threat-actor activity, and potential business impact.
+- MUST NOT be calculated using a Python formula.
+- MUST NOT simply count records whose input severity happens to be
+  "critical".
+- MUST NOT be derived from the configured critical-threat floor.
+- MUST NOT be artificially increased or decreased to force a
+  particular routing outcome.
 
-    
-    """
+The router will independently compare your resulting
+`critical_threats` value against the configured policy floor.
+
+Your responsibility ends with making the best evidence-based
+cybersecurity judgment.
+
+ANALYSIS QUALITY
+
+Correlate external threat intelligence with internal endpoint evidence.
+
+For example, when threat-intelligence evidence identifies a known
+threat actor or malware family and endpoint telemetry independently
+shows behavior consistent with that threat, explain the correlation
+rather than treating the two observations as unrelated facts.
+
+Pay particular attention to:
+
+- confirmed compromise
+- lateral movement
+- persistence
+- data exfiltration
+- malicious processes
+- matched IOCs
+- active campaigns
+- critical business systems
+- potential operational disruption
+- potential financial and reputational impact
+
+Return ONLY the structured assessment represented by the required
+AnalysisAssessment schema.
+"""
 
     return Task(
         description=description,
         expected_output=(
-            "A structured AnalysisAssessment containing threat_analysis, the LLM-judged critical_threats count and analyzed."
+            "A structured AnalysisAssessment containing threat_analysis, "
+            "the LLM-judged critical_threats count, and analyzed."
         ),
         agent=agent,
         output_pydantic=AnalysisAssessment,
