@@ -70,18 +70,27 @@ class AnalysisAssessment(BaseModel):
         ),
     )
 
-    analyzed: bool = Field(
+    threat_severity_score: float = Field(
         ...,
+        ge = 0.0,
+        le = 100.0,
         description = (
-            "True when available threat intelligence and endpoint telemetry have been successfully analyzed."
+            "Overall threat severity score from 0 to 100. This value MUST be the LLM's own evidence based cybersecurity judgement and MUST NOT be calculated using a hard-coded formula."
         ),
     )
 
-    critical_threats: int = Field(
+    compromised_systems: int = Field(
         ...,
         ge = 0,
         description = (
-            "Number of threats that the LLM independently judges to be critical based on the complete evidence. This MUST be a reasoned LLM judgement and MUST NOT be calculated using a hard-coded formula or simple severity-field count."
+            "Number of systems assessed as potentially compromised based on the available detection evidence."
+        ),
+    )
+
+    detected: str = Field(
+        ...,
+        description = (
+            "Potential financial, operational and reputational impact of the threat."
         ),
     )
 
